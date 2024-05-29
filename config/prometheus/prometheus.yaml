@@ -1,0 +1,26 @@
+scrape_configs:
+- job_name: 'microservice-product'
+  scrape_interval: 2s
+  metrics_path: '/product/prometheus'
+  static_configs:
+    - targets: ['192.168.195.23:4563']
+- job_name: 'microservice-order'
+  scrape_interval: 2s
+  metrics_path: '/order/prometheus'
+  static_configs:
+    - targets: ['192.168.195.23:4563']
+- job_name: 'microservice-forum'
+  scrape_interval: 2s
+  metrics_path: '/forum/prometheus'
+  static_configs:
+    - targets: ['192.168.195.23:4563']
+- job_name: 'microservice-activity'
+  scrape_interval: 2s
+  metrics_path: '/activity/prometheus'
+  static_configs:
+    - targets: ['192.168.195.23:4563']
+- job_name: 'kafka'
+  scrape_interval: 2s
+  metrics_path: /metrics
+  static_configs:
+    - targets: ['192.168.195.23:9309']

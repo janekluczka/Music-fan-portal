@@ -1,0 +1,249 @@
+version: '3.8'
+services:
+  zookeeper:
+    container_name: 'zookeeper'
+    image: 'andante.azurecr.io/andante:zookeeper'
+    environment:
+      ALLOW_ANONYMOUS_LOGIN: 'yes'
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+  kafka:
+    container_name: 'kafka'
+    image: 'andante.azurecr.io/andante:kafka'
+    ports:
+      - '9093:9093'
+    environment:
+      KAFKA_BROKER_ID: 1
+      KAFKA_CFG_LISTENERS: INNER://kafka:9092, OUTER://127.0.0.1:9093
+      KAFKA_CFG_ADVERTISED_LISTENERS: INNER://kafka:9092, OUTER://127.0.0.1:9093
+      KAFKA_CFG_LISTENER_SECURITY_PROTOCOL_MAP: INNER:PLAINTEXT,OUTER:PLAINTEXT
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+      KAFKA_CFG_INTER_BROKER_LISTENER_NAME: INNER
+      ALLOW_PLAINTEXT_LISTENER: 'yes'
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+        reservations:
+          memory: 512M
+    depends_on:
+      - zookeeper
+    volumes:
+      - kafka:/var/lib/bitnami/kafka
+  postgres:
+    container_name: auth
+    image: 'andante.azurecr.io/andante:postgres'
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+    environment:
+      POSTGRES_DB: keycloak
+      POSTGRES_USER: keycloak
+      POSTGRES_PASSWORD: Xfc3UsneuC0seHWeE26W
+    volumes:
+      - auth:/var/lib/postgresql/data
+    restart: always
+  keycloak:
+    container_name: keycloak
+    image: 'andante.azurecr.io/andante:keycloak'
+    domainname: "andante"
+    environment:
+      KEYCLOAK_USER: keycloak_admin
+      KEYCLOAK_PASSWORD: wUUtmdYfzV0PTlf1TPHY
+      KEYCLOAK_IMPORT: /tmp/config/keycloak/realms/andante.json
+      KEYCLOAK_DEFAULT_THEME: andante
+      DB_VENDOR: postgres
+      DB_ADDR: auth
+      DB_DATABASE: keycloak
+      DB_PORT: 5432
+      DB_SCHEMA: public
+      DB_USER: keycloak
+      DB_PASSWORD: Xfc3UsneuC0seHWeE26W
+      JAVA_OPTS_APPEND: "-Dkeycloak.profile.feature.upload_scripts=enabled -Dkeycloak.profile.feature.declarative_user_profile=enabled"
+    deploy:
+      resources:
+        limits:
+          memory: 1G
+          cpus: '0.5'
+    ports:
+      - '8080:8080'
+    volumes:
+      - realm:/tmp/config/keycloak/realms
+      - keycloak:/tmp/config/keycloak/realms
+    depends_on:
+      - postgres
+    restart: always
+  eureka:
+    container_name: eureka
+    image: 'andante.azurecr.io/andante:eureka'
+    ports:
+      - "8761:8761"
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+    depends_on:
+      - keycloak
+    restart: always
+  productdb:
+    container_name: productdb
+    image: 'andante.azurecr.io/andante:postgres'
+    environment:
+      POSTGRES_DB: product
+      POSTGRES_USER: product_admin
+      POSTGRES_PASSWORD: JsnVaFXeKW0kvdOC8TjR
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+    volumes:
+      - product:/var/lib/postgresql/data
+    restart: always
+  product:
+    container_name: product
+    image: 'andante.azurecr.io/andante:product'
+    depends_on:
+      - productdb
+      - eureka
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.45'
+    restart: always
+  forumdb:
+    container_name: forumdb
+    image: 'andante.azurecr.io/andante:postgres'
+    environment:
+      POSTGRES_DB: forum
+      POSTGRES_USER: forum_admin
+      POSTGRES_PASSWORD: QLGfRjjzNJBHGmcOIrBV
+    volumes:
+      - forum:/var/lib/postgresql/data
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+    restart: always
+  forum:
+    container_name: forum
+    image: 'andante.azurecr.io/andante:forum'
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+    depends_on:
+      - eureka
+      - forumdb
+    restart: always
+  ordersdb:
+    container_name: ordersdb
+    image: 'andante.azurecr.io/andante:postgres'
+    environment:
+      POSTGRES_DB: orders
+      POSTGRES_USER: orders_admin
+      POSTGRES_PASSWORD: QRMWVSCv1yWhxCoDHrqu
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+    volumes:
+      - order:/var/lib/postgresql/data
+    restart: always
+  order:
+    container_name: order
+    image: 'andante.azurecr.io/andante:order'
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+    depends_on:
+      - eureka
+      - ordersdb
+    restart: always
+  activitydb:
+    container_name: activitydb
+    image: 'andante.azurecr.io/andante:postgres'
+    environment:
+      POSTGRES_DB: activity
+      POSTGRES_USER: activity_admin
+      POSTGRES_PASSWORD: TEWYbEzwq3VI6wPrfAki
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+    volumes:
+      - activity:/var/lib/postgresql/data
+    restart: always
+  activity:
+    container_name: activity
+    image: 'andante.azurecr.io/andante:activity'
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+    depends_on:
+      - eureka
+      - activitydb
+    restart: always
+  gateway:
+    container_name: gateway
+    domainname: 'andante'
+    image: 'andante.azurecr.io/andante:gateway'
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+          cpus: '0.25'
+    depends_on:
+      - kafka
+      - activity
+      - order
+      - forum
+      - product
+      - keycloak
+    restart: always
+volumes:
+  kafka:
+    driver: azure_file
+    driver_opts:
+      share_name: kafka
+      storage_account_name: andantestorage
+  auth:
+    driver: azure_file
+    driver_opts:
+      share_name: auth
+      storage_account_name: andantestorage
+  forum:
+    driver: azure_file
+    driver_opts:
+      share_name: forum
+      storage_account_name: andantestorage
+  order:
+    driver: azure_file
+    driver_opts:
+      share_name: order
+      storage_account_name: andantestorage
+  product:
+    driver: azure_file
+    driver_opts:
+      share_name: product
+      storage_account_name: andantestorage
+  activity:
+    driver: azure_file
+    driver_opts:
+      share_name: activity
+      storage_account_name: andantestorage
